@@ -16,13 +16,37 @@ namespace WorldCraft
     /// </summary>
     public class Game1 : Microsoft.Xna.Framework.Game
     {
-        GraphicsDeviceManager graphics;
-        SpriteBatch spriteBatch;
-
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        
         public Game1()
         {
-            graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+
+            _graphics = new GraphicsDeviceManager(this);
+
+            _graphics.PreferMultiSampling = true; // Turn on antialiasing 
+            _graphics.SynchronizeWithVerticalRetrace = true; // Turn on VSync
+            _graphics.GraphicsProfile = GraphicsProfile.HiDef; // Turn on best graphic settings
+
+            _graphics.IsFullScreen = false;
+
+            if (_graphics.IsFullScreen) // fullscreen
+            {
+                _graphics.PreferredBackBufferWidth = 1920;
+                _graphics.PreferredBackBufferHeight = 1200;
+
+                Window.AllowUserResizing = false;
+            }
+            else // window mode
+            {
+                _graphics.PreferredBackBufferWidth = 1280;
+                _graphics.PreferredBackBufferHeight = 720;
+
+                Window.AllowUserResizing = true;
+            }
+
+            _graphics.ApplyChanges();
         }
 
         /// <summary>
@@ -33,7 +57,16 @@ namespace WorldCraft
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
+            var camera = new Camera(this);
+            var map = new Map(this, camera);
+            var player = new Player(this, camera);
+
+            Components.Add(camera);
+            Components.Add(map);
+            Components.Add(player);
+            
+            player.Position = new Vector3(4, 4,-4);
+
 
             base.Initialize();
         }
@@ -45,7 +78,7 @@ namespace WorldCraft
         protected override void LoadContent()
         {
             // Create a new SpriteBatch, which can be used to draw textures.
-            spriteBatch = new SpriteBatch(GraphicsDevice);
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
         }
@@ -81,7 +114,7 @@ namespace WorldCraft
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(Color.Black);
 
             // TODO: Add your drawing code here
 
