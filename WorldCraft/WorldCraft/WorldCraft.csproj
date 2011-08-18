@@ -109,6 +109,8 @@
   <ItemGroup>
     <Compile Include="Block.cs" />
     <Compile Include="Camera.cs" />
+    <Compile Include="Chunk.cs" />
+    <Compile Include="PerlinNoise.cs" />
     <Compile Include="Map.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

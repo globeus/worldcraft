@@ -19,7 +19,7 @@ namespace WorldCraft
     {
         #region Properties
 
-        private Camera _camera;
+        private Game1 _game;
 
         private const float MOVEMENTSPEED = 0.05f;
         private const float ROTATIONSPEED = 0.1f;
@@ -35,11 +35,11 @@ namespace WorldCraft
         {
             get
             {
-                return _camera.Position;
+                return _game.Camera.Position;
             }
             set
             {
-                _camera.Position = value;
+                _game.Camera.Position = value;
             }
         }
 
@@ -47,20 +47,20 @@ namespace WorldCraft
         {
             get
             {
-                return _camera.Rotation;
+                return _game.Camera.Rotation;
             }
             set
             {
-                _camera.Rotation = value;
+                _game.Camera.Rotation = value;
             }
         }
 
        
 
-        public Player(Game game, Camera camera)
+        public Player(Game1 game)
             : base(game)
         {
-            _camera = camera;
+            _game = game;
         }
 
         /// <summary>
@@ -95,7 +95,7 @@ namespace WorldCraft
             if (mouseDY != 0)
                 pitch = -ROTATIONSPEED * (mouseDY / 50);
 
-            _camera.Rotate(yaw, pitch);
+            _game.Camera.Rotate(yaw, pitch);
 
             _mouseMoveState = new MouseState(GraphicsDevice.Viewport.Width / 2,
                     GraphicsDevice.Viewport.Height / 2,
@@ -113,22 +113,22 @@ namespace WorldCraft
 
             if (currentKeyboardState.IsKeyDown(Keys.Z))
             {
-                _camera.Translate(Vector3.Forward, translationStep);
+                _game.Camera.Translate(Vector3.Forward, translationStep);
             }
 
             if (currentKeyboardState.IsKeyDown(Keys.S))
             {
-                _camera.Translate(Vector3.Backward, translationStep);
+                _game.Camera.Translate(Vector3.Backward, translationStep);
             }
 
             if (currentKeyboardState.IsKeyDown(Keys.Q))
             {
-                _camera.Translate(Vector3.Left, translationStep);
+                _game.Camera.Translate(Vector3.Left, translationStep);
             }
 
             if (currentKeyboardState.IsKeyDown(Keys.D))
             {
-                _camera.Translate(Vector3.Right, translationStep);
+                _game.Camera.Translate(Vector3.Right, translationStep);
             }
 
             #endregion

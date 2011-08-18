@@ -18,7 +18,11 @@ namespace WorldCraft
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        
+
+        public Camera Camera { get; protected set; }
+        public Map Map { get; protected set; }
+        public Player Player { get; protected set; }
+
         public Game1()
         {
             Content.RootDirectory = "Content";
@@ -57,15 +61,15 @@ namespace WorldCraft
         /// </summary>
         protected override void Initialize()
         {
-            var camera = new Camera(this);
-            var map = new Map(this, camera);
-            var player = new Player(this, camera);
+            Camera = new Camera(this);
+            Map = new Map(this);
+            Player = new Player(this);
 
-            Components.Add(camera);
-            Components.Add(map);
-            Components.Add(player);
+            Components.Add(Camera);
+            Components.Add(Map);
+            Components.Add(Player);
             
-            player.Position = new Vector3(4, 4,-4);
+            Player.Position = new Vector3(4, 4,-4);
 
 
             base.Initialize();
@@ -114,9 +118,15 @@ namespace WorldCraft
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);
+            #region DEBUG : Change CullMode to None to debug primitives
+            
+            var state = new RasterizerState();
+            state.CullMode = CullMode.CullCounterClockwiseFace;
+            GraphicsDevice.RasterizerState = state;
 
-            // TODO: Add your drawing code here
+            #endregion
+
+            GraphicsDevice.Clear(Color.Black);
 
             base.Draw(gameTime);
         }

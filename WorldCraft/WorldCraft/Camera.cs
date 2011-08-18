@@ -49,16 +49,17 @@ namespace WorldCraft
                 return _view;
             }
         }
-        public bool InView(BoundingSphere boundingSphere)
+
+        public bool InViewFrustrum(BoundingBox boundingBox)
         {
-            return new BoundingFrustum(View * Projection).Intersects(boundingSphere);
+            return new BoundingFrustum(View * Projection).Intersects(boundingBox);
         }
 
         #endregion
 
         #region GameComponent
 
-        public Camera(Game game)
+        public Camera(Game1 game)
             : base(game)
         {
             _isViewDirty = true;
