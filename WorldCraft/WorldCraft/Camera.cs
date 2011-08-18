@@ -49,6 +49,10 @@ namespace WorldCraft
                 return _view;
             }
         }
+        public bool InView(BoundingSphere boundingSphere)
+        {
+            return new BoundingFrustum(View * Projection).Intersects(boundingSphere);
+        }
 
         #endregion
 
