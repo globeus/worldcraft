@@ -26,6 +26,7 @@
 *.lib
 *.sbr
 *.sdf
+*.cachefile
 ipch/
 obj/
 [Bb]in
