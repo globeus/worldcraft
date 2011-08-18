@@ -19,13 +19,22 @@ namespace WorldCraft
     {
         #region Properties
 
-        private Camera _camera;
-        private BasicEffect _effect; 
+        private Game _game;
+        private Camera _camera;  
+        private BasicEffect _effect;
+        private Block[] _blocks;
+
+        private Texture2D[] _textures;
+
+        private const short MAP_WIDTH = 20;
+        private const short MAP_DEPTH = 20;
+        private const short MAP_HEIGHT = 40;
+        private const short MAP_WATER_LEVEL = 20;
         
         public VertexBuffer SolidVertexBuffer { get; protected set; }
         public IndexBuffer SolidIndexBuffer { get; protected set; }
         public List<int> SolidIndexList { get; protected set; }
-        public List<VertexPositionColor> SolidVertexList { get; protected set; }
+        public List<VertexPositionTexture> SolidVertexList { get; protected set; }
 
         #endregion
 
@@ -34,10 +43,13 @@ namespace WorldCraft
         public Map(Game game, Camera camera)
             : base(game)
         {
+            _game = game;
             _camera = camera;
 
-            SolidVertexList = new List<VertexPositionColor>();
+            SolidVertexList = new List<VertexPositionTexture>();
             SolidIndexList = new List<int>();
+
+            _blocks = new Block[MAP_WIDTH * MAP_DEPTH * MAP_HEIGHT];
         }
 
         /// <summary>
@@ -53,18 +65,15 @@ namespace WorldCraft
 
         protected override void LoadContent()
         {
-            this._effect = new BasicEffect(GraphicsDevice);
-            this._effect.VertexColorEnabled = true;
+            _effect = new BasicEffect(GraphicsDevice);
+            
+            _textures = new Texture2D[] { 
+                null,
+                _game.Content.Load<Texture2D>("block_Rock_128")
+            };
 
-            var rnd = new Random();
-            for (var x = 0; x < 24; x += 2)
-            {
-                for (var z = 0; z < 24; z += 2)
-                {
-                    for (var y = 0; y < rnd.Next(0, 24); y += 2)
-                        buildVertices(x, y, z);
-                }
-            }
+            generateBlocks();
+            buildVertices();
 
             base.LoadContent();
         }
@@ -87,14 +96,10 @@ namespace WorldCraft
         /// <param name="gameTime">Time passed since the last call to Draw.</param>
         public override void Draw(GameTime gameTime)
         {
-            this._effect.World = Matrix.Identity;
-            this._effect.View = this._camera.View;
-            this._effect.Projection = this._camera.Projection;
-
             // Initialize vertex buffer if it was not done before
             if (SolidVertexBuffer == null)
             {
-                SolidVertexBuffer = new VertexBuffer(GraphicsDevice, typeof(VertexPositionColor), SolidVertexList.Count, BufferUsage.WriteOnly);
+                SolidVertexBuffer = new VertexBuffer(GraphicsDevice, typeof(VertexPositionTexture), SolidVertexList.Count, BufferUsage.WriteOnly);
                 SolidVertexBuffer.SetData(SolidVertexList.ToArray());
             }
 
@@ -105,7 +110,15 @@ namespace WorldCraft
                 SolidIndexBuffer.SetData(SolidIndexList.ToArray());
             }
 
-            foreach (EffectPass pass in this._effect.CurrentTechnique.Passes)
+            _effect.World = Matrix.Identity;
+            _effect.View = _camera.View;
+            _effect.Projection = _camera.Projection;
+
+            _effect.VertexColorEnabled = false;
+            _effect.TextureEnabled = true;
+            _effect.Texture = _textures[1];
+
+            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
             {
                 pass.Apply();
                 GraphicsDevice.SetVertexBuffer(SolidVertexBuffer);
@@ -118,38 +131,81 @@ namespace WorldCraft
 
         #endregion
 
-        private void buildVertices(float x, float y, float z)
+        #region Blocks generation
+
+        private void generateBlocks()
         {
-            var vertexList = new VertexPositionColor[] {
-                new VertexPositionColor( new Vector3(1+x , 1+y , -1+z)    ,Color.Red),
-                new VertexPositionColor( new Vector3(1+x , -1+y , -1+z)   ,Color.Red),
-                new VertexPositionColor( new Vector3(-1+x , -1+y , -1+z)  ,Color.Red),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , -1+z)   ,Color.Red),
+            var rnd = new Random();
+            for(var x = 0; x < MAP_WIDTH; x++)
+                for(var z = 0; z < MAP_DEPTH; z++)
+                {
+                    var offset = x*MAP_WIDTH*MAP_DEPTH + z * MAP_HEIGHT;
 
-                new VertexPositionColor( new Vector3(1+x , 1+y , 1+z)     ,Color.Green),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , 1+z)    ,Color.Green),
-                new VertexPositionColor( new Vector3(-1+x , -1+y , 1+z)   ,Color.Green),
-                new VertexPositionColor( new Vector3(1+x , -1+y , 1+z)    ,Color.Green),
+                    var groundHeight = MAP_WATER_LEVEL + rnd.Next(0, 10)-5;
 
-                new VertexPositionColor( new Vector3(1+x , 1+y , -1+z)    ,Color.Blue),
-                new VertexPositionColor( new Vector3(1+x , 1+y , 1+z)     ,Color.Blue),
-                new VertexPositionColor( new Vector3(1+x , -1+y , 1+z)    ,Color.Blue),
-                new VertexPositionColor( new Vector3(1+x , -1+y , -1+z)   ,Color.Blue),
+                    for (var y = 0; y < groundHeight; y++)
+                    {
+                        _blocks[offset + y] = new Block(BlockType.Rock);
+                    }
 
-                new VertexPositionColor( new Vector3(1+x , -1+y , -1+z)   ,Color.Orange),
-                new VertexPositionColor( new Vector3(1+x , -1+y , 1+z)    ,Color.Orange),
-                new VertexPositionColor( new Vector3(-1+x , -1+y , 1+z)   ,Color.Orange),
-                new VertexPositionColor( new Vector3(-1+x , -1+y , -1+z)  ,Color.Orange),
+                    for (var y = groundHeight; y < MAP_HEIGHT; y++)
+                    {
+                        _blocks[offset + y] = new Block(BlockType.None);
+                    }
+                }
+        }
 
-                new VertexPositionColor( new Vector3(-1+x , -1+y , -1+z)  ,Color.Purple),
-                new VertexPositionColor( new Vector3(-1+x , -1+y , 1+z)   ,Color.Purple),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , 1+z)    ,Color.Purple),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , -1+z)   ,Color.Purple),
+        #endregion
 
-                new VertexPositionColor( new Vector3(1+x , 1+y , 1+z)     ,Color.Yellow),
-                new VertexPositionColor( new Vector3(1+x , 1+y , -1+z)    ,Color.Yellow),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , -1+z)   ,Color.Yellow),
-                new VertexPositionColor( new Vector3(-1+x , 1+y , 1+z)    ,Color.Yellow)
+        private void buildVertices()
+        {
+            for(var x = 0; x < MAP_WIDTH; x++)
+                for (var z = 0; z < MAP_DEPTH; z++)
+                {
+                    var offset = x * MAP_WIDTH * MAP_DEPTH + z * MAP_HEIGHT;
+
+                    for (var y = 0; y < MAP_HEIGHT; y++)
+                    {
+                        buildVertices(_blocks[offset+y], x, y, z, 0.5f, 0.5f, 0.5f);
+                    }
+                }
+        }
+
+        private void buildVertices(Block block, float x, float y, float z, float scaleX, float scaleY, float scaleZ)
+        {
+            if (block.Type == BlockType.None)
+                return;
+
+            var vertexList = new VertexPositionTexture[] {
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 0)),
+
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(0, 0)),
+
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 0)),
+                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 1)),
+                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 0))
             };
 
             var indexList = new int[]
