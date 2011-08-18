@@ -26,15 +26,15 @@ namespace WorldCraft
 
         private Texture2D[] _textures;
 
-        private const short MAP_WIDTH = 20;
-        private const short MAP_DEPTH = 20;
-        private const short MAP_HEIGHT = 40;
-        private const short MAP_WATER_LEVEL = 20;
+        private const short MAP_WIDTH = 50;
+        private const short MAP_DEPTH = 50;
+        private const short MAP_HEIGHT = 50;
+        private const short MAP_WATER_LEVEL = 25;
         
         public VertexBuffer SolidVertexBuffer { get; protected set; }
         public IndexBuffer SolidIndexBuffer { get; protected set; }
         public List<int> SolidIndexList { get; protected set; }
-        public List<VertexPositionTexture> SolidVertexList { get; protected set; }
+        public List<VertexPositionNormalTexture> SolidVertexList { get; protected set; }
 
         #endregion
 
@@ -46,7 +46,7 @@ namespace WorldCraft
             _game = game;
             _camera = camera;
 
-            SolidVertexList = new List<VertexPositionTexture>();
+            SolidVertexList = new List<VertexPositionNormalTexture>();
             SolidIndexList = new List<int>();
 
             _blocks = new Block[MAP_WIDTH * MAP_DEPTH * MAP_HEIGHT];
@@ -99,7 +99,7 @@ namespace WorldCraft
             // Initialize vertex buffer if it was not done before
             if (SolidVertexBuffer == null)
             {
-                SolidVertexBuffer = new VertexBuffer(GraphicsDevice, typeof(VertexPositionTexture), SolidVertexList.Count, BufferUsage.WriteOnly);
+                SolidVertexBuffer = new VertexBuffer(GraphicsDevice, typeof(VertexPositionNormalTexture), SolidVertexList.Count, BufferUsage.WriteOnly);
                 SolidVertexBuffer.SetData(SolidVertexList.ToArray());
             }
 
@@ -117,6 +117,8 @@ namespace WorldCraft
             _effect.VertexColorEnabled = false;
             _effect.TextureEnabled = true;
             _effect.Texture = _textures[1];
+            _effect.LightingEnabled = true;
+            _effect.EnableDefaultLighting();
 
             foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
             {
@@ -176,39 +178,47 @@ namespace WorldCraft
             if (block.Type == BlockType.None)
                 return;
 
-            var vertexList = new VertexPositionTexture[] {
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+            var vertices = new VertexPositionNormalTexture[24];
 
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 0)),
+            vertices[0].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
+            vertices[1].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
+            vertices[2].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
+            vertices[3].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
 
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+            vertices[4].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+            vertices[5].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+            vertices[6].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            vertices[7].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
 
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)   , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)    , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(0, 0)),
+            vertices[8].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
+            vertices[9].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+            vertices[10].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            vertices[11].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
 
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z)  , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z)   , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 0)),
+            vertices[12].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
+            vertices[13].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            vertices[14].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            vertices[15].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
 
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)     , new Vector2(1, 0)),
-                new VertexPositionTexture( new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)    , new Vector2(1, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z)   , new Vector2(0, 1)),
-                new VertexPositionTexture( new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z)    , new Vector2(0, 0))
-            };
+            vertices[16].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
+            vertices[17].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            vertices[18].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+            vertices[19].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
 
-            var indexList = new int[]
+            vertices[20].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+            vertices[21].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
+            vertices[22].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
+            vertices[23].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
+
+            for(var i = 0; i < 6; i++)
+            {
+                vertices[i*4 + 0].TextureCoordinate = new Vector2(1, 0);
+                vertices[i*4 + 1].TextureCoordinate = new Vector2(1, 1);
+                vertices[i*4 + 2].TextureCoordinate = new Vector2(0, 1);
+                vertices[i*4 + 3].TextureCoordinate = new Vector2(0, 0);
+            }
+
+            var indices = new int[]
             {
                 0, 3, 2, 0, 2, 1,
                 4, 7, 6, 4,6, 5,
@@ -218,12 +228,23 @@ namespace WorldCraft
                 20, 23, 22,20,22, 21
             };
 
+            for (var i = 0; i < indices.Length / 3; i++)
+            {
+                Vector3 firstvec = vertices[indices[i * 3 + 1]].Position - vertices[indices[i * 3]].Position;
+                Vector3 secondvec = vertices[indices[i * 3]].Position - vertices[indices[i * 3 + 2]].Position;
+                Vector3 normal = Vector3.Cross(firstvec, secondvec);
+                normal.Normalize();
+                vertices[indices[i * 3]].Normal += normal;
+                vertices[indices[i * 3 + 1]].Normal += normal;
+                vertices[indices[i * 3 + 2]].Normal += normal;
+            }
+
             var currentVertexOffset = SolidVertexList.Count;
 
-            foreach(var vertex in vertexList)
+            foreach(var vertex in vertices)
                 SolidVertexList.Add(vertex);
 
-            foreach(var index in indexList)
+            foreach(var index in indices)
                 SolidIndexList.Add(index + currentVertexOffset);
         }
     }
