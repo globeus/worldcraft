@@ -15,7 +15,7 @@ namespace WorldCraft
     /// <summary>
     /// This is a game component that implements IUpdateable.
     /// </summary>
-    public class Chunk : Microsoft.Xna.Framework.DrawableGameComponent
+    public class Chunk
     {
         #region Properties
 
@@ -23,13 +23,15 @@ namespace WorldCraft
         private Vector3 _offset;
         private BoundingBox _boundingBox;
         private Block[] _blocks;
+        private BlockAccessor _blockAccessor;
 
-        public const short WIDTH = 16;
-        public const short DEPTH = 16;
-        public const short HEIGHT = 32;
+        public const short WIDTH = 64;
+        public const short DEPTH = 64;
+        public const short HEIGHT = 128;
 
         private BasicEffect _effect;
-        
+
+        public GraphicsDevice GraphicsDevice { get { return _game.GraphicsDevice; } }
         public VertexBuffer SolidVertexBuffer { get; protected set; }
         public IndexBuffer SolidIndexBuffer { get; protected set; }
         public List<int> SolidIndexList { get; protected set; }
@@ -41,52 +43,40 @@ namespace WorldCraft
 
         #region GameComponent
 
-        public Chunk(Game1 game, Vector3 offset)
-            : base(game)
+        public Chunk(Game1 game, Vector3 offset, Block[] blocks)
         {
             _game = game;
             _offset = offset;
 
             _boundingBox = new BoundingBox(
-                new Vector3(_offset.X+1 * WIDTH, _offset.Y * HEIGHT, _offset.Z * DEPTH),
-                new Vector3((_offset.X+1) * WIDTH, (_offset.Y+1) * HEIGHT, (_offset.Z+1) * DEPTH));
+                new Vector3(_offset.X * WIDTH, _offset.Y * HEIGHT, _offset.Z * DEPTH),
+                new Vector3((_offset.X + 1) * WIDTH, (_offset.Y + 1) * HEIGHT, (_offset.Z + 1) * DEPTH));
 
             SolidVertexList = new List<VertexPositionNormalTexture>();
             SolidIndexList = new List<int>();
 
-            _blocks = new Block[WIDTH * DEPTH * HEIGHT];
-        }
+            _blocks = blocks;
+            _blockAccessor = new BlockAccessor(_game.Map);
 
-        /// <summary>
-        /// Allows the game component to perform any initialization it needs to before starting
-        /// to run.  This is where it can query for any required services and load content.
-        /// </summary>
-        public override void Initialize()
-        {
-            // TODO: Add your initialization code here
-
-            base.Initialize();                
-        }
-
-        protected override void LoadContent()
-        {
             _effect = new BasicEffect(GraphicsDevice);
+        }
 
-            generateBlocks();
-            buildVertices();
-
-            base.LoadContent();
+        public void Initialize()
+        {
+            BuildVertices();
+            //OctreeBuildVertices(0, 0, 0, WIDTH, HEIGHT, DEPTH);            
         }
 
         /// <summary>
         /// Allows the game component to update itself.
         /// </summary>
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        public override void Update(GameTime gameTime)
+        public void Update(GameTime gameTime)
         {
-            InViewFrustrum = _game.Camera.InViewFrustrum(_boundingBox);
+            if (SolidVertexList.Count == 0)
+                return;
 
-            base.Update(gameTime);
+            InViewFrustrum = _game.Camera.InViewFrustrum(_boundingBox);
         }
 
         /// <summary>
@@ -94,8 +84,11 @@ namespace WorldCraft
         //  with component-specific drawing code.
         /// </summary>
         /// <param name="gameTime">Time passed since the last call to Draw.</param>
-        public override void Draw(GameTime gameTime)
+        public void Draw(GameTime gameTime)
         {
+            if (SolidVertexList.Count == 0)
+                return;
+
             if (InViewFrustrum)
             {
                 // Initialize vertex buffer if it was not done before
@@ -130,145 +123,329 @@ namespace WorldCraft
                     GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SolidVertexList.Count, 0, SolidIndexList.Count / 3);
                 }
             }
-
-            base.Draw(gameTime);
         }
 
         #endregion
 
-        #region Blocks generation
+        #region Block accessor
 
-        private void generateBlocks()
+        public Block GetBlockAt(int mapX, int mapY, int mapZ)
         {
-            var perlinNoise = new PerlinNoise(_game.Map.Seed);
+            return _blocks[(mapX - (int)_offset.X * WIDTH) * DEPTH * HEIGHT
+                + (mapZ - (int)_offset.Z * DEPTH) * HEIGHT
+                + (mapY - (int)_offset.Y * HEIGHT)]; 
+        }
 
-            for(var x = 0; x < WIDTH; x++)
-                for(var z = 0; z < DEPTH; z++)
+        #endregion
+
+        #region Vertices generation
+
+        private void OctreeBuildVertices(int x, int y, int z, int width, int height, int depth)
+        {
+            if (width == 1 && height == 1 && depth == 1)
+            {
+                int offset = x * DEPTH * HEIGHT + z * HEIGHT + y;
+                Block block = _blocks[offset];
+
+                BuildVertices(
+                    block,
+                    x + 0.5f + _offset.X * WIDTH,
+                    y + 0.5f + _offset.Y * HEIGHT,
+                    z + 0.5f + _offset.Z * DEPTH,
+                    0.5f, 0.5f, 0.5f);
+            }
+            else
+            {
+                bool hasTransparentBlock = false;
+                int offset;
+                Block block;
+
+                float subdiv = 2.0f;
+
+                int nwidth, nheight, ndepth, cwidth, cheight, cdepth, fwidth, fheight, fdepth;
+
+                // Face 1,2
+
+                for (int nz = 0; nz < depth; nz += depth - 1)
+                    for (int nx = 0; nx < width; nx++)
+                        for (int ny = 0; ny < height; ny++)
+                        {
+                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
+                            block = _blocks[offset];
+
+                            int nv = BuildVertices(
+                                block,
+                                x + nx + 0.5f + _offset.X * WIDTH,
+                                y + ny + 0.5f + _offset.Y * HEIGHT,
+                                z + nz + 0.5f + _offset.Z * DEPTH,
+                                0.5f, 0.5f, 0.5f);
+
+                            if (nv == 0 || BlockHelper.isBlockTransparent(block))
+                                hasTransparentBlock = true;
+                        }
+
+                // Face 3,4
+
+                for (int ny = 0; ny < height; ny += height - 1)
+                    for (int nx = 0; nx < width; nx++)
+                        for (int nz = 1; nz < depth - 1; nz++)
+                        {
+                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
+                            block = _blocks[offset];
+
+                            int nv = BuildVertices(
+                                block,
+                                x + nx + 0.5f + _offset.X * WIDTH,
+                                y + ny + 0.5f + _offset.Y * HEIGHT,
+                                z + nz + 0.5f + _offset.Z * DEPTH,
+                                0.5f, 0.5f, 0.5f);
+
+                            if (nv == 0 || BlockHelper.isBlockTransparent(block))
+                                hasTransparentBlock = true;
+                        }
+
+                // Face 5,6
+
+                for (int nx = 0; nx < width; nx += width - 1)
+                    for (int ny = 1; ny < height - 1; ny++)
+                        for (int nz = 1; nz < depth - 1; nz++)
+                        {
+                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
+                            block = _blocks[offset];
+
+                            int nv = BuildVertices(
+                                block,
+                                x + nx + 0.5f + _offset.X * WIDTH,
+                                y + ny + 0.5f + _offset.Y * HEIGHT,
+                                z + nz + 0.5f + _offset.Z * DEPTH,
+                                0.5f, 0.5f, 0.5f);
+
+                            if (nv == 0 || BlockHelper.isBlockTransparent(block))
+                                hasTransparentBlock = true;
+                        }
+
+                // Begin recursion if there is transparent block
+
+                if (hasTransparentBlock)
                 {
-                    var offset = x * DEPTH * HEIGHT + z * HEIGHT;
+                    nwidth = (int)Math.Floor((width - 2) / subdiv);
+                    nheight = (int)Math.Floor((height - 2) / subdiv);
+                    ndepth = (int)Math.Floor((depth - 2) / subdiv);
 
-                    var mapX = x + _offset.X * WIDTH;
-                    var mapZ = z + _offset.Z * DEPTH;
+                    cwidth = 0;
 
-                    var noiseWidth = Map.NUM_CHUNKS_WIDTH * WIDTH;
-                    var noiseDepth = Map.NUM_CHUNKS_DEPTH * DEPTH;
-
-                    float octave1 = (perlinNoise.Noise(2.0f * mapX * 1 / noiseWidth, 2.0f * mapZ * 1 / noiseDepth) + 1) / 2 * 0.7f;
-                    float octave2 = (perlinNoise.Noise(4.0f * mapX * 1 / noiseWidth, 4.0f * mapZ * 1 / noiseDepth) + 1) / 2 * 0.2f;
-                    float octave3 = (perlinNoise.Noise(8.0f * mapX * 1 / noiseWidth, 8.0f * mapZ * 1 / noiseDepth) + 1) / 2 * 0.1f;
-
-                    var rnd = octave1 + octave2 + octave3;
-
-                    var rndheight = (int)Math.Floor(rnd * HEIGHT);
-
-                    if (rndheight == 0) rndheight = 1;
-
-                    for (var y = 0; y < rndheight; y++)
+                    for (short i = 0; i < subdiv; i++)
                     {
-                        _blocks[offset + y] = new Block(BlockType.Rock);
-                    }
+                        cheight = 0;
+                        fwidth = (i == (int)subdiv - 1) ? width - 2 - cwidth : nwidth;
 
-                    for (var y = rndheight; y < HEIGHT; y++)
-                    {
-                        _blocks[offset + y] = new Block(BlockType.None);
+                        for (short j = 0; j < subdiv; j++)
+                        {
+                            cdepth = 0;
+                            fheight = (j == (int)subdiv - 1) ? height - 2 - cheight : nheight;
+
+                            for (short k = 0; k < subdiv; k++)
+                            {
+                                fdepth = (k == (int)subdiv - 1) ? depth - 2 - cdepth : ndepth;
+
+                                if (fwidth > 0 && fheight > 0 && fdepth > 0)
+                                    OctreeBuildVertices(
+                                        1 + x + cwidth,
+                                        1 + y + cheight,
+                                        1 + z + cdepth,
+                                        fwidth, fheight, fdepth);
+
+                                cdepth += fdepth;
+                            }
+
+                            cheight += fheight;
+                        }
+
+                        cwidth += fwidth;
                     }
                 }
+            }
         }
 
-        #endregion
-
-        private void buildVertices()
+        private void BuildVertices()
         {
-            for(var x = 0; x < WIDTH; x++)
+            for (var x = 0; x < WIDTH; x++)
                 for (var z = 0; z < DEPTH; z++)
                 {
                     var offset = x * DEPTH * HEIGHT + z * HEIGHT;
 
                     for (var y = 0; y < HEIGHT; y++)
                     {
-                        buildVertices(
-                            _blocks[offset + y], 
-                            x + 0.5f + _offset.X * WIDTH, 
-                            y + 0.5f + _offset.Y * HEIGHT, 
-                            z + 0.5f + _offset.Z * DEPTH, 
+                        BuildVertices(
+                            _blocks[offset + y],
+                            x + 0.5f + _offset.X * WIDTH,
+                            y + 0.5f + _offset.Y * HEIGHT,
+                            z + 0.5f + _offset.Z * DEPTH,
                             0.5f, 0.5f, 0.5f);
                     }
                 }
         }
 
-        private void buildVertices(Block block, float x, float y, float z, float scaleX, float scaleY, float scaleZ)
+        private int BuildVertices(Block block, float x, float y, float z, float scaleX, float scaleY, float scaleZ)
         {
             if (block.Type == BlockType.None)
-                return;
+                return 0;
 
-            var vertices = new VertexPositionNormalTexture[24];
+            var faces = new List<VertexPositionNormalTexture[]>();
 
-            vertices[0].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
-            vertices[1].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-            vertices[2].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-            vertices[3].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
+            Block neighbourBlock;
 
-            vertices[4].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-            vertices[5].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-            vertices[6].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
-            vertices[7].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
+            // Front
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Backward.Block;
 
-            vertices[8].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
-            vertices[9].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-            vertices[10].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
-            vertices[11].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-
-            vertices[12].Position = new Vector3(1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-            vertices[13].Position = new Vector3(1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
-            vertices[14].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
-            vertices[15].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-
-            vertices[16].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , -1*scaleZ+z);
-            vertices[17].Position = new Vector3(-1*scaleX+x , -1*scaleY+y , 1*scaleZ+z);
-            vertices[18].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-            vertices[19].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
-
-            vertices[20].Position = new Vector3(1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-            vertices[21].Position = new Vector3(1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
-            vertices[22].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , -1*scaleZ+z);
-            vertices[23].Position = new Vector3(-1*scaleX+x , 1*scaleY+y , 1*scaleZ+z);
-
-            for(var i = 0; i < 6; i++)
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
             {
-                vertices[i*4 + 0].TextureCoordinate = new Vector2(1, 0);
-                vertices[i*4 + 1].TextureCoordinate = new Vector2(1, 1);
-                vertices[i*4 + 2].TextureCoordinate = new Vector2(0, 1);
-                vertices[i*4 + 3].TextureCoordinate = new Vector2(0, 0);
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+                face[1].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+                face[2].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+                face[3].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+                faces.Add(face);
             }
 
-            var indices = new int[]
-            {
-                0, 3, 2, 0, 2, 1,
-                4, 7, 6, 4,6, 5,
-                8, 11, 10,8,10, 9,
-                12, 15, 14, 12, 14, 13,
-                16, 19, 18,16,18, 17,
-                20, 23, 22,20,22, 21
-            };
+            //Back
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Forward.Block;
 
-            for (var i = 0; i < indices.Length / 3; i++)
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
             {
-                Vector3 firstvec = vertices[indices[i * 3 + 1]].Position - vertices[indices[i * 3]].Position;
-                Vector3 secondvec = vertices[indices[i * 3]].Position - vertices[indices[i * 3 + 2]].Position;
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+                face[1].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+                face[2].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                face[3].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                faces.Add(face);
+            }
+
+            //Right
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Right.Block;
+
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
+            {
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+                face[1].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+                face[2].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                face[3].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+
+                faces.Add(face);
+            }
+
+
+            //Bottom
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Down.Block;
+
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
+            {
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+                face[1].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                face[2].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                face[3].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+
+                faces.Add(face);
+            }
+
+            //Left
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Left.Block;
+
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
+            {
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
+                face[1].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, 1 * scaleZ + z);
+                face[2].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+                face[3].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+
+                faces.Add(face);
+            }
+
+            //Top
+            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
+            neighbourBlock = _blockAccessor.Up.Block;
+
+            if (BlockHelper.isBlockTransparent(neighbourBlock))
+            {
+                var face = new VertexPositionNormalTexture[4];
+                face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+                face[1].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+                face[2].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
+                face[3].Position = new Vector3(-1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
+
+                faces.Add(face);
+            }
+
+            for (var i = 0; i < faces.Count; i++)
+            {
+                var face = faces.ElementAt(i);
+
+                float[] uv = BlockHelper.getUVMapping(block);
+
+                float left = uv[0] + 0.1f;
+                float right = uv[0] + uv[2] * 0.90f;
+                float top = uv[1] + 0.1f;
+                float bottom = uv[1] + uv[3] * 0.90f;
+
+                face[0].TextureCoordinate = new Vector2(right, top);
+                face[1].TextureCoordinate = new Vector2(right, bottom);
+                face[2].TextureCoordinate = new Vector2(left, bottom);
+                face[3].TextureCoordinate = new Vector2(left, top);
+            }
+
+            var indices = new int[faces.Count * 6]; 
+
+            int j = 0;
+            for(int i = 0; i < faces.Count; i++)
+            {
+                var offset = i * 4;
+                indices[j++] = 0 + offset;
+                indices[j++] = 3 + offset;
+                indices[j++] = 2 + offset;
+
+                indices[j++] = 0 + offset;
+                indices[j++] = 2 + offset;
+                indices[j++] = 1 + offset;
+            }
+
+
+            for (int i = 0; i < indices.Length / 3; i++)
+            {
+                var face = faces.ElementAt((int)(float)i / 2);
+                
+                // i = 0 => face[3] - face[0], face[0] - face[2]
+                // i = 1 => face[2] - face[0], face[0] - face[1]
+                Vector3 firstvec = face[indices[i * 3 + 1] % 4].Position - face[indices[i * 3] % 4].Position;
+                Vector3 secondvec = face[indices[i * 3] % 4].Position - face[indices[i * 3 + 2] % 4].Position;
                 Vector3 normal = Vector3.Cross(firstvec, secondvec);
                 normal.Normalize();
-                vertices[indices[i * 3]].Normal += normal;
-                vertices[indices[i * 3 + 1]].Normal += normal;
-                vertices[indices[i * 3 + 2]].Normal += normal;
+                face[indices[i * 3] % 4].Normal += normal;
+                face[indices[i * 3 + 1] % 4].Normal += normal;
+                face[indices[i * 3 + 2] % 4].Normal += normal;
             }
 
             var currentVertexOffset = SolidVertexList.Count;
 
-            foreach(var vertex in vertices)
-                SolidVertexList.Add(vertex);
+            foreach (var face in faces)
+                foreach(var vertex in face)
+                {
+                    SolidVertexList.Add(vertex);
+                }
 
-            foreach(var index in indices)
+            foreach (var index in indices)
                 SolidIndexList.Add(index + currentVertexOffset);
+
+            return SolidVertexList.Count;
         }
+
+        #endregion
     }
 }
