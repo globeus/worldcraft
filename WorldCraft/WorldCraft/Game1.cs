@@ -16,9 +16,8 @@ namespace WorldCraft
     /// </summary>
     public class Game1 : Microsoft.Xna.Framework.Game
     {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
-
+        public GraphicsDeviceManager GraphicsDeviceManager { get; protected set; }
+        public SpriteBatch SpriteBatch;
         public Camera Camera { get; protected set; }
         public Map Map { get; protected set; }
         public Player Player { get; protected set; }
@@ -27,30 +26,30 @@ namespace WorldCraft
         {
             Content.RootDirectory = "Content";
 
-            _graphics = new GraphicsDeviceManager(this);
+            GraphicsDeviceManager = new GraphicsDeviceManager(this);
 
-            _graphics.PreferMultiSampling = true; // Turn on antialiasing 
-            _graphics.SynchronizeWithVerticalRetrace = true; // Turn on VSync
-            _graphics.GraphicsProfile = GraphicsProfile.HiDef; // Turn on best graphic settings
+            GraphicsDeviceManager.PreferMultiSampling = true; // Turn on antialiasing 
+            GraphicsDeviceManager.SynchronizeWithVerticalRetrace = true; // Turn on VSync
+            GraphicsDeviceManager.GraphicsProfile = GraphicsProfile.HiDef; // Turn on best graphic settings
 
-            _graphics.IsFullScreen = false;
+            GraphicsDeviceManager.IsFullScreen = false;
 
-            if (_graphics.IsFullScreen) // fullscreen
+            if (GraphicsDeviceManager.IsFullScreen) // fullscreen
             {
-                _graphics.PreferredBackBufferWidth = 1920;
-                _graphics.PreferredBackBufferHeight = 1200;
+                GraphicsDeviceManager.PreferredBackBufferWidth = 1920;
+                GraphicsDeviceManager.PreferredBackBufferHeight = 1200;
 
                 Window.AllowUserResizing = false;
             }
             else // window mode
             {
-                _graphics.PreferredBackBufferWidth = 1280;
-                _graphics.PreferredBackBufferHeight = 720;
+                GraphicsDeviceManager.PreferredBackBufferWidth = 1280;
+                GraphicsDeviceManager.PreferredBackBufferHeight = 720;
 
                 Window.AllowUserResizing = true;
             }
 
-            _graphics.ApplyChanges();
+            GraphicsDeviceManager.ApplyChanges();
         }
 
         /// <summary>
@@ -64,13 +63,14 @@ namespace WorldCraft
             Camera = new Camera(this);
             Map = new Map(this);
             Player = new Player(this);
+            var debugInfos = new DebugInfos(this);
+            var hud = new HUD(this);
 
             Components.Add(Camera);
             Components.Add(Map);
             Components.Add(Player);
-            
-            Player.Position = new Vector3(4, 4,-4);
-
+            Components.Add(debugInfos);
+            Components.Add(hud);
 
             base.Initialize();
         }
@@ -82,7 +82,7 @@ namespace WorldCraft
         protected override void LoadContent()
         {
             // Create a new SpriteBatch, which can be used to draw textures.
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            SpriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
         }
@@ -103,11 +103,8 @@ namespace WorldCraft
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
-            // Allows the game to exit
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
                 this.Exit();
-
-            // TODO: Add your update logic here
 
             base.Update(gameTime);
         }
