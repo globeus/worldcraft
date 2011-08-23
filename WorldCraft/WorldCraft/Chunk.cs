@@ -25,10 +25,6 @@ namespace WorldCraft
         private Block[] _blocks;
         private BlockAccessor _blockAccessor;
 
-        public const short WIDTH = 4;
-        public const short DEPTH = 4;
-        public const short HEIGHT = 4;
-
         private BasicEffect _effect;
 
         private VertexBuffer _solidVertexBuffer;
@@ -37,6 +33,12 @@ namespace WorldCraft
         private List<int> _solidIndexList;
         private List<VertexPositionNormalTexture> _solidVertexList;
         private SortedDictionary<int, List<int>> _solidIndicesDict;
+
+        public const short WIDTH = 32;
+        public const short DEPTH = 32;
+        public const short HEIGHT = 32;
+
+        public int NumVertices { get; protected set; }
 
         public bool InViewFrustrum { get; protected set; }
 
@@ -144,7 +146,7 @@ namespace WorldCraft
             {
                 // Replace plain block with none block => We must destroy vertices and build neighbours ones
 
-                destroyBlockVertices(mapX, mapY, mapZ);
+                NumVertices -= destroyBlockVertices(mapX, mapY, mapZ);
             }
             else if(block.Type != oldBlock.Type)
             {
@@ -163,6 +165,8 @@ namespace WorldCraft
             _solidIndexList.Clear();
             _solidVertexList.Clear();
             _solidIndicesDict.Clear();
+
+            NumVertices = 0;
         }
 
         private void UpdateBuffers()
@@ -311,7 +315,7 @@ namespace WorldCraft
 
                     for (int y = 0; y < HEIGHT; y++)
                     {
-                        BuildVertices(
+                        NumVertices += BuildVertices(
                             _blocks[offset + y],
                             x + _offset.X * WIDTH,
                             y + _offset.Y * HEIGHT,
@@ -487,10 +491,7 @@ namespace WorldCraft
 
                 foreach (var face in faces)
                     foreach (var vertex in face)
-                    {
                         _solidVertexList.Add(vertex);
-                        verticesList.Add(vertex);
-                    }
 
                 var blockOffset = GetBlockOffset((int)x, (int)y, (int)z);
                 _solidIndicesDict[blockOffset] = new List<int>();
@@ -502,7 +503,7 @@ namespace WorldCraft
                 }
             }
 
-            return _solidVertexList.Count;
+            return faces.Count * 4;
         }
 
         private int destroyBlockVertices(float blockX, float blockY, float blockZ)

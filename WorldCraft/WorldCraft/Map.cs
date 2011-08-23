@@ -37,6 +37,27 @@ namespace WorldCraft
         public int Seed { get; protected set; }
         public Texture2D Texture { get; protected set; }
 
+        public int NumBlocks
+        {
+            get
+            {
+                return NUM_CHUNKS_WIDTH * Chunk.WIDTH * NUM_CHUNKS_HEIGHT * Chunk.HEIGHT * NUM_CHUNKS_DEPTH * Chunk.DEPTH;
+            }
+        }
+
+        public int NumVertices
+        {
+            get
+            {
+                int total = 0;
+                foreach (var chunk in _chunks)
+                {
+                    total += chunk.NumVertices;
+                }
+                return total;
+            }
+        }
+
         #endregion
 
         #region GameComponent
@@ -175,8 +196,8 @@ namespace WorldCraft
 
                     int curY = 0;
 
-                    for (; curY < (dirtHeight) && curY < Chunk.HEIGHT; curY++)                    
-                        blocks[offset + curY] = new Block(BlockType.Rock);                    
+                    for (; curY < (dirtHeight) && curY < Chunk.HEIGHT; curY++)
+                        blocks[offset + curY] = new Block(BlockType.Rock);
 
                     for (; curY < grassHeight && curY < Chunk.HEIGHT; curY++)
                         blocks[offset + curY] = new Block(BlockType.Dirt);
@@ -185,7 +206,7 @@ namespace WorldCraft
                     {
                         blocks[offset + curY] = new Block(BlockType.Grass);
                         curY++;
-                    }                    
+                    }
 
                     for (; curY < Chunk.HEIGHT; curY++)
                     {
@@ -222,7 +243,7 @@ namespace WorldCraft
 
                         float rnd = octave1 + octave2 + octave3;
 
-                        if(rnd < 0.5)
+                        if (rnd < 0.5)
                             blocks[offset + y] = new Block(BlockType.Rock);
                         else
                             blocks[offset + y] = new Block(BlockType.None);

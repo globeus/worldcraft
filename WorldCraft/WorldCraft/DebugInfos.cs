@@ -51,15 +51,23 @@ namespace WorldCraft
 
         public override void Draw(GameTime gameTime)
         {
-            var playerPosition = String.Format("Player position : {0}, {1}, {2}", _game.Player.Position.X, _game.Player.Position.Y, _game.Player.Position.Z);
-            var playerMapPosition = String.Format("Player map position : {0}, {1}, {2}", _game.Player.MapPosition.X, _game.Player.MapPosition.Y, _game.Player.MapPosition.Z);
-            var playerBlockAim = String.Format("Player block aim : {0}, {1}, {2}", _game.Player.BlockAim.X, _game.Player.BlockAim.Y, _game.Player.BlockAim.Z);
+            var strings = new List<String>();
+            strings.Add(String.Format("Num blocks / vertices : {0} / {1}", _game.Map.NumBlocks, _game.Map.NumVertices));
+            strings.Add(String.Format("Player position : {0}, {1}, {2} ({3}, {4}, {5})",
+                _game.Player.MapPosition.X, _game.Player.MapPosition.Y, _game.Player.MapPosition.Z, 
+                _game.Player.Position.X, _game.Player.Position.Y, _game.Player.Position.Z));
+            strings.Add(String.Format("Player block aim : {0}, {1}, {2}", _game.Player.BlockAim.X, _game.Player.BlockAim.Y, _game.Player.BlockAim.Z));
 
             _game.SpriteBatch.Begin();
-            
-            _game.SpriteBatch.DrawString(_font, playerPosition, new Vector2(20, 45), Color.White);
-            _game.SpriteBatch.DrawString(_font, playerMapPosition, new Vector2(20, 65), Color.White);
-            _game.SpriteBatch.DrawString(_font, playerBlockAim, new Vector2(20, 85), Color.White);
+
+            var height = 45;
+
+            foreach(var str in strings)
+            {
+                _game.SpriteBatch.DrawString(_font, str, new Vector2(20, height), Color.White);
+
+                height += 20;
+            }
 
             _game.SpriteBatch.End();
 
