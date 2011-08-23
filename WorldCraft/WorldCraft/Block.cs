@@ -41,12 +41,27 @@ namespace WorldCraft
 
     public static class BlockHelper
     {
-        public static bool isBlockTransparent(Block block)
+        public static bool IsNone(Block block)
         {
             return block.Type == BlockType.None;
         }
 
-        public static float[] getUVMapping(Block block)
+        public static bool IsPlain(Block block)
+        {
+            return block.Type != BlockType.None;
+        }
+
+        public static bool IsTransparent(Block block)
+        {
+            return block.Type == BlockType.None;
+        }
+
+        public static bool IsSelectable(Block block)
+        {
+            return block.Type != BlockType.None;
+        }
+
+        public static float[] GetUVMapping(Block block)
         {
             int numTexturesPerRow = 2;
             int numTexturesPerCol = 2;
@@ -67,19 +82,37 @@ namespace WorldCraft
 
     public class BlockAccessor
     {
-        public static short[] LEFT =        new short[] {-1, 0, 0};
-        public static short[] RIGHT =       new short[] {1, 0, 0};
-        public static short[] UP =          new short[] {0, 1, 0};
-        public static short[] DOWN =        new short[] {0, -1, 0};
-        public static short[] FORWARD =     new short[] {0, 0, 1};
-        public static short[] BACKWARD =    new short[] {0, 0, -1};
+        private Block _outOfMapBlock;
+        private Map _map;
+
+        public static short[] LEFT = new short[] { -1, 0, 0 };
+        public static short[] RIGHT = new short[] { 1, 0, 0 };
+        public static short[] UP = new short[] { 0, 1, 0 };
+        public static short[] DOWN = new short[] { 0, -1, 0 };
+        public static short[] FORWARD = new short[] { 0, 0, 1 };
+        public static short[] BACKWARD = new short[] { 0, 0, -1 };
 
         public Chunk Chunk { get; protected set; }
         public Block Block { get; protected set; }
 
-        private Block _outOfMapBlock;
-        private Map _map;
-        private int _x, _y, _z;
+        public int X { get; protected set; }
+        public int Y { get; protected set; }
+        public int Z { get; protected set; }
+
+        public List<short[]> AllDirections
+        {
+            get
+            {
+                var list = new List<short[]>(6);
+                list.Add(LEFT);
+                list.Add(RIGHT);
+                list.Add(UP);
+                list.Add(DOWN);
+                list.Add(FORWARD);
+                list.Add(BACKWARD);
+                return list;
+            }
+        }
 
         public BlockAccessor(Map map)
         {
@@ -96,23 +129,28 @@ namespace WorldCraft
             else
                 Block = _outOfMapBlock;
 
-            _x = x;
-            _y = y;
-            _z = z;
+            X = x;
+            Y = y;
+            Z = z;
 
             return this;
         }
 
+        public BlockAccessor MoveTo(float x, float y, float z)
+        {
+            return MoveTo((int)x, (int)y, (int)z);
+        }
+
         public BlockAccessor MoveTo(short[] direction)
         {
-            return MoveTo(_x + direction[0], _y + direction[1], _z + direction[2]);
+            return MoveTo(X + direction[0], Y + direction[1], Z + direction[2]);
         }
 
         public BlockAccessor Up
         {
             get
             {
-                MoveTo(_x, _y + 1, _z);
+                MoveTo(X, Y + 1, Z);
                 return this;
             }
         }
@@ -121,7 +159,7 @@ namespace WorldCraft
         {
             get
             {
-                MoveTo(_x, _y - 1, _z);
+                MoveTo(X, Y - 1, Z);
                 return this;
             }
         }
@@ -130,7 +168,7 @@ namespace WorldCraft
         {
             get
             {
-                MoveTo(_x - 1, _y, _z);
+                MoveTo(X - 1, Y, Z);
                 return this;
             }
         }
@@ -139,7 +177,7 @@ namespace WorldCraft
         {
             get
             {
-                MoveTo(_x + 1, _y, _z);
+                MoveTo(X + 1, Y, Z);
 
                 return this;
             }
@@ -149,7 +187,7 @@ namespace WorldCraft
         {
             get
             {
-                MoveTo(_x, _y, _z - 1);
+                MoveTo(X, Y, Z - 1);
                 return this;
             }
         }
@@ -158,9 +196,55 @@ namespace WorldCraft
         {
             get
             {
-                MoveTo(_x, _y, _z + 1);
+                MoveTo(X, Y, Z + 1);
                 return this;
             }
+        }
+
+        public BoundingBox BoundingBox
+        {
+            get
+            {
+                return new BoundingBox(new Vector3(X, Y, Z), new Vector3(X + 1, Y + 1, Z + 1));
+            }
+        }
+
+        public bool IsNone
+        {
+            get
+            {
+                return BlockHelper.IsNone(Block);
+            }
+        }
+
+        public bool IsPlain
+        {
+            get
+            {
+                return BlockHelper.IsPlain(Block);
+            }
+        }
+
+        public bool IsTransparent
+        {
+            get
+            {
+                return BlockHelper.IsTransparent(Block);
+            }
+        }
+
+        public bool IsSelectable
+        {
+            get
+            {
+                return BlockHelper.IsSelectable(Block);
+            }
+        }
+
+        public void ReplaceWithBlock(Block block)
+        {
+            var chunk = _map.GetChunkAt(X, Y, Z);
+            chunk.SetBlockAt(X, Y, Z, block);
         }
 
     }
