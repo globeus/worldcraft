@@ -19,8 +19,6 @@ namespace WorldCraft
     {
         #region Properties
 
-        private float _yaw;
-        private float _pitch;
         private Vector3 _position;
         private Quaternion _rotation;
 
@@ -48,14 +46,14 @@ namespace WorldCraft
 
                 return _view;
             }
-        }
+        }    
+
+        #endregion
 
         public bool InViewFrustrum(BoundingBox boundingBox)
         {
             return new BoundingFrustum(View * Projection).Intersects(boundingBox);
         }
-
-        #endregion
 
         #region GameComponent
 
@@ -63,7 +61,6 @@ namespace WorldCraft
             : base(game)
         {
             _isViewDirty = true;
-            _yaw = _pitch = 0;
 
             Position = Vector3.Zero;
             Rotation = Quaternion.Identity;
@@ -132,28 +129,6 @@ namespace WorldCraft
 
             _isViewDirty = true;
         }
-
-        /// <summary>
-        /// Rotates the camera using yaw and pitch.
-        /// </summary>
-        /// <param name="yaw">Rotate adding this yaw</param>
-        /// <param name="pitch">Rotate adding this pitch</param>
-        public void Rotate(float yaw, float pitch)
-        {
-            _yaw += yaw;
-            _pitch += pitch;
-
-            // Locking camera rotation vertically between +/- 180 degrees
-            if (_pitch < -1.55f)
-                _pitch = -1.55f;
-            else if (_pitch > 1.55f)
-                _pitch = 1.55f;
-            // End of locking
-
-            Rotation = Quaternion.CreateFromYawPitchRoll(_yaw, _pitch, 0);
-
-            _isViewDirty = true;
-        } 
 
         #endregion
     }

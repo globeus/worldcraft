@@ -27,6 +27,8 @@ namespace WorldCraft
         public const short NUM_CHUNKS_HEIGHT = 1;
         public const short MAP_WATER_HEIGHT = 25;
 
+        public const float GRAVITY = 2f;
+
         public VertexBuffer SolidVertexBuffer { get; protected set; }
         public IndexBuffer SolidIndexBuffer { get; protected set; }
         public List<int> SolidIndexList { get; protected set; }
@@ -119,6 +121,7 @@ namespace WorldCraft
         }
 
         #endregion
+
 
         #region Chunks generation
 
