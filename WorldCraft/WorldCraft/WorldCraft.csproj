@@ -110,6 +110,8 @@
     <Compile Include="Block.cs" />
     <Compile Include="Camera.cs" />
     <Compile Include="Chunk.cs" />
+    <Compile Include="HUD.cs" />
+    <Compile Include="DebugInfos.cs" />
     <Compile Include="SimplexNoise.cs" />
     <Compile Include="PerlinNoise.cs" />
     <Compile Include="Map.cs" />
@@ -121,6 +123,7 @@
   <ItemGroup>
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
+    <Content Include="TODO.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WorldCraftContent\WorldCraftContent.contentproj">
