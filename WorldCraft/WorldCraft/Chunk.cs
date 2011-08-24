@@ -35,9 +35,9 @@ namespace WorldCraft
         private List<VertexPositionNormalTexture> _solidVertexList;
         private Dictionary<int, List<int>> _solidIndicesDict;
 
-        public const short WIDTH = 16;
-        public const short DEPTH = 16;
-        public const short HEIGHT = 16;
+        public const short WIDTH = 32;
+        public const short DEPTH = 32;
+        public const short HEIGHT = 32;
 
         public int NumVertices { get; protected set; }
 
@@ -140,11 +140,11 @@ namespace WorldCraft
             var oldBlock = _blocks[offset];
             _blocks[offset] = block;
 
-            if (BlockHelper.IsNone(oldBlock) && BlockHelper.IsPlain(block))
+            if (BlockHelper.IsNone(oldBlock) && !BlockHelper.IsNone(block))
             {
                 // Replace none block with plain block => We must create new block vertices and destroy neighbours ones
             }
-            else if (BlockHelper.IsPlain(oldBlock) && BlockHelper.IsNone(block))
+            else if (!BlockHelper.IsNone(oldBlock) && BlockHelper.IsNone(block))
             {
                 // Replace plain block with none block => We must destroy vertices and build neighbours ones
 
@@ -153,7 +153,7 @@ namespace WorldCraft
 
                 foreach (var dir in directions)
                 {
-                    if (_blockAccessor.MoveTo(mapX, mapY, mapZ).MoveTo(dir).IsPlain)
+                    if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).MoveTo(dir).IsNone)
                         NumVertices += RebuildBlockVertices(_blockAccessor.X, _blockAccessor.Y, _blockAccessor.Z);
                 }
             }
@@ -222,12 +222,14 @@ namespace WorldCraft
             y += 0.5f;
             z += 0.5f;
 
+            bool isLiquid = BlockHelper.IsLiquid(block);
+
             float scaleX = 0.5f, scaleY = 0.5f, scaleZ = 0.5f;
 
             var faces = new List<VertexPositionNormalTexture[]>();
 
             // Front
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Backward.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Backward.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -238,7 +240,7 @@ namespace WorldCraft
             }
 
             //Back
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Forward.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Forward.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
@@ -249,7 +251,7 @@ namespace WorldCraft
             }
 
             //Right
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Right.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Right.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -262,7 +264,7 @@ namespace WorldCraft
 
 
             //Bottom
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Down.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Down.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -274,7 +276,7 @@ namespace WorldCraft
             }
 
             //Left
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Left.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Left.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -286,7 +288,7 @@ namespace WorldCraft
             }
 
             //Top
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Up.IsTransparent)
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Up.IsTransparent && !_blockAccessor.IsLiquid)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);

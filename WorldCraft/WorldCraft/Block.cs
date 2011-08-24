@@ -18,7 +18,8 @@ namespace WorldCraft
         None,
         Rock,
         Grass,
-        Dirt
+        Dirt,
+        Water
     }
 
     #endregion
@@ -46,14 +47,19 @@ namespace WorldCraft
             return block.Type == BlockType.None;
         }
 
-        public static bool IsPlain(Block block)
+        public static bool IsSolid(Block block)
         {
-            return block.Type != BlockType.None;
+            return !IsNone(block) && !IsLiquid(block);
+        }
+
+        public static bool IsLiquid(Block block)
+        {
+            return block.Type == BlockType.Water;
         }
 
         public static bool IsTransparent(Block block)
         {
-            return block.Type == BlockType.None;
+            return IsNone(block) || IsLiquid(block);
         }
 
         public static bool IsSelectable(Block block)
@@ -217,11 +223,19 @@ namespace WorldCraft
             }
         }
 
-        public bool IsPlain
+        public bool IsSolid
         {
             get
             {
-                return BlockHelper.IsPlain(Block);
+                return BlockHelper.IsSolid(Block);
+            }
+        }
+
+        public bool IsLiquid
+        {
+            get
+            {
+                return BlockHelper.IsLiquid(Block);
             }
         }
 

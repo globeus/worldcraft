@@ -21,13 +21,13 @@ namespace WorldCraft
 
         private Game1 _game;
 
-        private const float MOVEMENTSPEED = 0.005f;
-        private const float ROTATIONSPEED = 0.1f;
-        private const float JUMPSPEED = 0.48f;
+        private const float MOVEMENT_SPEED = 0.0025f;
+        private const float ROTATION_SPEED = 0.1f;
+        private const float JUMP_SPEED = 0.24f;
 
-        private const float PLAYERHEIGHT = 1.5f;
-        private const float PLAYERWIDTH = 0.5f;
-        private const float PLAYERDEPTH = 0.5f;
+        private const float PLAYER_HEIGHT = 1.5f;
+        private const float PLAYER_WIDTH = 0.5f;
+        private const float PLAYER_DEPTH = 0.5f;
 
         private MouseState _mouseMoveState;
         private MouseState _mouseState;
@@ -36,8 +36,10 @@ namespace WorldCraft
         private float _yaw;
         private float _pitch;
 
+        private float _currentGravity;
         private float _gravityElapsedTime;
         private bool _jumping;
+        private bool _swimming;
         private bool _falling;
 
         private MouseState _prevMouseState;
@@ -53,7 +55,7 @@ namespace WorldCraft
             set
             {
                 _position = value;
-                _game.Camera.Position = value + new Vector3(0, 1.5f, 0);
+                _game.Camera.Position = value + new Vector3(0, PLAYER_HEIGHT, 0);
             }
         }
 
@@ -73,7 +75,7 @@ namespace WorldCraft
         {
             get
             {
-                return new BoundingBox(new Vector3(-PLAYERWIDTH / 2, 0, -PLAYERDEPTH / 2) + _position, new Vector3(PLAYERWIDTH / 2, PLAYERHEIGHT, PLAYERDEPTH / 2) + _position);
+                return new BoundingBox(new Vector3(-PLAYER_WIDTH / 2, 0, -PLAYER_DEPTH / 2) + _position, new Vector3(PLAYER_WIDTH / 2, PLAYER_HEIGHT, PLAYER_DEPTH / 2) + _position);
             }
         }
 
@@ -120,6 +122,7 @@ namespace WorldCraft
             _yaw = _pitch = 0;
             _position = Vector3.Zero;
             _jumping = false;
+            _currentGravity = Map.AIR_GRAVITY;
 
             _blockAccessor = new BlockAccessor(_game.Map);
         }
@@ -157,10 +160,10 @@ namespace WorldCraft
             Vector3 newPosition = Vector3.Zero + Position;
 
             if (mouseDX != 0)
-                yaw = -ROTATIONSPEED * (mouseDX / 50);
+                yaw = -ROTATION_SPEED * (mouseDX / 50);
 
             if (mouseDY != 0)
-                pitch = -ROTATIONSPEED * (mouseDY / 50);
+                pitch = -ROTATION_SPEED * (mouseDY / 50);
 
             Rotate(yaw, pitch);
 
@@ -175,8 +178,25 @@ namespace WorldCraft
 
             #region Keyboard movement keys
 
+            int mapX = (int)newPosition.X;
+            int mapY = (int)newPosition.Y;
+            int mapZ = (int)newPosition.Z;
+
+            _blockAccessor.MoveTo(mapX, mapY, mapZ);
+            
+            float moveSpeed;
+            float gravity;
+            float jumpSpeed;
+
+            if (_blockAccessor.IsLiquid)
+                gravity = Map.LIQUID_GRAVITY;
+            else
+                gravity = Map.AIR_GRAVITY;
+
+            moveSpeed = gravity * MOVEMENT_SPEED;
+
             var currentKeyboardState = Keyboard.GetState();
-            var translationStep = MOVEMENTSPEED * gameTime.ElapsedGameTime.Milliseconds;
+            var translationStep = _currentGravity * moveSpeed * gameTime.ElapsedGameTime.Milliseconds;
 
             var moveTranslation = new Vector3(0, 0, 0);
 
@@ -192,10 +212,6 @@ namespace WorldCraft
             if (currentKeyboardState.IsKeyDown(Keys.D))
                 moveTranslation += Vector3.Right;
 
-            if (currentKeyboardState.IsKeyDown(Keys.Space) && !_jumping && !_falling)
-                _jumping = true;
-
-
             var tempPosition = Vector3.Transform(moveTranslation, Matrix.CreateFromQuaternion(Rotation));
             tempPosition.Y = 0;
 
@@ -209,13 +225,21 @@ namespace WorldCraft
 
             #region Gravity
 
+            if (currentKeyboardState.IsKeyDown(Keys.Space) && ((!_jumping && !_falling) || _blockAccessor.IsLiquid) )                
+                _jumping = true;
+
+            if (_jumping)
+                jumpSpeed = gravity * JUMP_SPEED;
+            else
+                jumpSpeed = 0;
+
             if (_jumping || _falling)
             {
                 _gravityElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
              
                 if (_jumping && _gravityElapsedTime > 0)
                 {
-                    float delta = (JUMPSPEED * _gravityElapsedTime) - (Map.GRAVITY * _gravityElapsedTime * _gravityElapsedTime * 0.5f);
+                    float delta = (jumpSpeed * _gravityElapsedTime) - (gravity * _gravityElapsedTime * _gravityElapsedTime * 0.5f);
 
                     newPosition.Y += delta;
 
@@ -229,7 +253,7 @@ namespace WorldCraft
                 }
                 else if (_falling && _gravityElapsedTime > 0)
                 {
-                    float delta = Map.GRAVITY * _gravityElapsedTime * _gravityElapsedTime * 0.5f;
+                    float delta = _currentGravity * _gravityElapsedTime * _gravityElapsedTime * 0.5f;
                     newPosition.Y -= delta;
                 }
             }
@@ -243,14 +267,14 @@ namespace WorldCraft
 
             #region Collisions
 
-            int mapX = (int)newPosition.X;
-            int mapY = (int)newPosition.Y;
-            int mapZ = (int)newPosition.Z;
+            mapX = (int)newPosition.X;
+            mapY = (int)newPosition.Y;
+            mapZ = (int)newPosition.Z;
 
             var boundingBox = new BoundingBox(new Vector3(-0.25f, 0, -0.25f) + newPosition, new Vector3(0.25f, 1.5f, 0.25f) + newPosition); ;
 
             // Checking Y collisions first
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 
@@ -266,7 +290,7 @@ namespace WorldCraft
             // a new Y coordinate could have been set so, let's set mapY again for horizontal checks
             mapY = (int)newPosition.Y;
 
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).Left.IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).Left.IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 
@@ -274,7 +298,7 @@ namespace WorldCraft
                     newPosition.X = mapX + 0.25f;
             }
 
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).Right.IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).Right.IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 
@@ -282,7 +306,7 @@ namespace WorldCraft
                     newPosition.X = mapX + 0.75f;
             }
 
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).Forward.IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).Forward.IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 
@@ -290,7 +314,7 @@ namespace WorldCraft
                     newPosition.Z = mapZ + 0.75f;
             }
 
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).Backward.IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).Backward.IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 
@@ -298,7 +322,7 @@ namespace WorldCraft
                     newPosition.Z = mapZ + 0.25f;
             }
 
-            if (!_blockAccessor.MoveTo(mapX, mapY, mapZ).Up.IsNone)
+            if (_blockAccessor.MoveTo(mapX, mapY, mapZ).Up.IsSolid)
             {
                 var bbox = _blockAccessor.BoundingBox;
 

@@ -25,9 +25,10 @@ namespace WorldCraft
         public const short NUM_CHUNKS_WIDTH = 1;
         public const short NUM_CHUNKS_DEPTH = 1;
         public const short NUM_CHUNKS_HEIGHT = 1;
-        public const short MAP_WATER_HEIGHT = 25;
+        public const float WATER_HEIGHT = 0.5f;
 
-        public const float GRAVITY = 2f;
+        public const float AIR_GRAVITY = 2f;
+        public const float LIQUID_GRAVITY = 0.5f;
 
         public VertexBuffer SolidVertexBuffer { get; protected set; }
         public IndexBuffer SolidIndexBuffer { get; protected set; }
@@ -88,7 +89,7 @@ namespace WorldCraft
 
         protected override void LoadContent()
         {
-            Texture = _game.Content.Load<Texture2D>("texture");
+            Texture = _game.Content.Load<Texture2D>("textures");
 
             GenerateChunks();
             foreach (var chunk in _chunks)
@@ -208,6 +209,11 @@ namespace WorldCraft
                         curY++;
                     }
 
+                    for (; curY < Map.WATER_HEIGHT * NUM_CHUNKS_HEIGHT * Chunk.HEIGHT; curY++)
+                    {
+                        blocks[offset + curY] = new Block(BlockType.Water);
+                    }
+
                     for (; curY < Chunk.HEIGHT; curY++)
                     {
                         blocks[offset + curY] = new Block(BlockType.None);
@@ -245,6 +251,8 @@ namespace WorldCraft
 
                         if (rnd < 0.5)
                             blocks[offset + y] = new Block(BlockType.Rock);
+                        else if(y < Map.WATER_HEIGHT * NUM_CHUNKS_HEIGHT * Chunk.HEIGHT)
+                            blocks[offset + y] = new Block(BlockType.Water);
                         else
                             blocks[offset + y] = new Block(BlockType.None);
                     }
