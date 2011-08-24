@@ -30,13 +30,14 @@ namespace WorldCraft
         private VertexBuffer _solidVertexBuffer;
         private IndexBuffer _solidIndexBuffer;
 
+        private List<int> _solidBlocksOffsetsList;
         private List<int> _solidIndexList;
         private List<VertexPositionNormalTexture> _solidVertexList;
-        private SortedDictionary<int, List<int>> _solidIndicesDict;
+        private Dictionary<int, List<int>> _solidIndicesDict;
 
-        public const short WIDTH = 32;
-        public const short DEPTH = 32;
-        public const short HEIGHT = 32;
+        public const short WIDTH = 16;
+        public const short DEPTH = 16;
+        public const short HEIGHT = 16;
 
         public int NumVertices { get; protected set; }
 
@@ -57,7 +58,8 @@ namespace WorldCraft
 
             _solidVertexList = new List<VertexPositionNormalTexture>();
             _solidIndexList = new List<int>();
-            _solidIndicesDict = new SortedDictionary<int,List<int>>();
+            _solidIndicesDict = new Dictionary<int,List<int>>();
+            _solidBlocksOffsetsList = new List<int>();
 
             _blocks = blocks;
             _blockAccessor = new BlockAccessor(_game.Map);
@@ -146,7 +148,14 @@ namespace WorldCraft
             {
                 // Replace plain block with none block => We must destroy vertices and build neighbours ones
 
-                NumVertices -= destroyBlockVertices(mapX, mapY, mapZ);
+                NumVertices -= DestroyBlockVertices(mapX, mapY, mapZ);
+                var directions = _blockAccessor.AllDirections;
+
+                foreach (var dir in directions)
+                {
+                    if (_blockAccessor.MoveTo(mapX, mapY, mapZ).MoveTo(dir).IsPlain)
+                        NumVertices += RebuildBlockVertices(_blockAccessor.X, _blockAccessor.Y, _blockAccessor.Z);
+                }
             }
             else if(block.Type != oldBlock.Type)
             {
@@ -179,129 +188,6 @@ namespace WorldCraft
 
             _solidIndexBuffer = new IndexBuffer(_game.GraphicsDevice, IndexElementSize.ThirtyTwoBits, _solidIndexList.Count, BufferUsage.WriteOnly);
             _solidIndexBuffer.SetData(_solidIndexList.ToArray());
-        }
-
-        private void OctreeBuildVertices(int x, int y, int z, int width, int height, int depth)
-        {
-            if (width == 1 && height == 1 && depth == 1)
-            {
-                int offset = x * DEPTH * HEIGHT + z * HEIGHT + y;
-                Block block = _blocks[offset];
-
-                BuildVertices(
-                    block,
-                    x + _offset.X * WIDTH,
-                    y + _offset.Y * HEIGHT,
-                    z + _offset.Z * DEPTH);
-            }
-            else
-            {
-                bool hasTransparentBlock = false;
-                int offset;
-                Block block;
-
-                float subdiv = 2.0f;
-
-                int nwidth, nheight, ndepth, cwidth, cheight, cdepth, fwidth, fheight, fdepth;
-
-                // Face 1,2
-
-                for (int nz = 0; nz < depth; nz += depth - 1)
-                    for (int nx = 0; nx < width; nx++)
-                        for (int ny = 0; ny < height; ny++)
-                        {
-                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
-                            block = _blocks[offset];
-
-                            int nv = BuildVertices(
-                                block,
-                                x + nx + _offset.X * WIDTH,
-                                y + ny + _offset.Y * HEIGHT,
-                                z + nz + _offset.Z * DEPTH);
-
-                            if (nv == 0 || BlockHelper.IsTransparent(block))
-                                hasTransparentBlock = true;
-                        }
-
-                // Face 3,4
-
-                for (int ny = 0; ny < height; ny += height - 1)
-                    for (int nx = 0; nx < width; nx++)
-                        for (int nz = 1; nz < depth - 1; nz++)
-                        {
-                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
-                            block = _blocks[offset];
-
-                            int nv = BuildVertices(
-                                block,
-                                x + nx + _offset.X * WIDTH,
-                                y + ny + _offset.Y * HEIGHT,
-                                z + nz + _offset.Z * DEPTH);
-
-                            if (nv == 0 || BlockHelper.IsTransparent(block))
-                                hasTransparentBlock = true;
-                        }
-
-                // Face 5,6
-
-                for (int nx = 0; nx < width; nx += width - 1)
-                    for (int ny = 1; ny < height - 1; ny++)
-                        for (int nz = 1; nz < depth - 1; nz++)
-                        {
-                            offset = (x + nx) * DEPTH * HEIGHT + (z + nz) * HEIGHT + (y + ny);
-                            block = _blocks[offset];
-
-                            int nv = BuildVertices(
-                                block,
-                                x + nx + _offset.X * WIDTH,
-                                y + ny + _offset.Y * HEIGHT,
-                                z + nz + _offset.Z * DEPTH);
-
-                            if (nv == 0 || BlockHelper.IsTransparent(block))
-                                hasTransparentBlock = true;
-                        }
-
-                // Begin recursion if there is transparent block
-
-                if (hasTransparentBlock)
-                {
-                    nwidth = (int)Math.Floor((width - 2) / subdiv);
-                    nheight = (int)Math.Floor((height - 2) / subdiv);
-                    ndepth = (int)Math.Floor((depth - 2) / subdiv);
-
-                    cwidth = 0;
-
-                    for (short i = 0; i < subdiv; i++)
-                    {
-                        cheight = 0;
-                        fwidth = (i == (int)subdiv - 1) ? width - 2 - cwidth : nwidth;
-
-                        for (short j = 0; j < subdiv; j++)
-                        {
-                            cdepth = 0;
-                            fheight = (j == (int)subdiv - 1) ? height - 2 - cheight : nheight;
-
-                            for (short k = 0; k < subdiv; k++)
-                            {
-                                fdepth = (k == (int)subdiv - 1) ? depth - 2 - cdepth : ndepth;
-
-                                if (fwidth > 0 && fheight > 0 && fdepth > 0)
-                                    OctreeBuildVertices(
-                                        1 + x + cwidth,
-                                        1 + y + cheight,
-                                        1 + z + cdepth,
-                                        fwidth, fheight, fdepth);
-
-                                cdepth += fdepth;
-                            }
-
-                            cheight += fheight;
-                        }
-
-                        cwidth += fwidth;
-                    }
-                }
-            }
         }
 
         private void BuildVertices()
@@ -340,13 +226,8 @@ namespace WorldCraft
 
             var faces = new List<VertexPositionNormalTexture[]>();
 
-            Block neighbourBlock;
-
             // Front
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Backward.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Backward.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -357,10 +238,7 @@ namespace WorldCraft
             }
 
             //Back
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Forward.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Forward.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
@@ -371,10 +249,7 @@ namespace WorldCraft
             }
 
             //Right
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Right.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Right.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -387,10 +262,7 @@ namespace WorldCraft
 
 
             //Bottom
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Down.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Down.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -402,10 +274,7 @@ namespace WorldCraft
             }
 
             //Left
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Left.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Left.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -417,10 +286,7 @@ namespace WorldCraft
             }
 
             //Top
-            _blockAccessor.MoveTo((int)x, (int)y, (int)z);
-            neighbourBlock = _blockAccessor.Up.Block;
-
-            if (BlockHelper.IsTransparent(neighbourBlock))
+            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Up.IsTransparent)
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
@@ -494,7 +360,9 @@ namespace WorldCraft
                         _solidVertexList.Add(vertex);
 
                 var blockOffset = GetBlockOffset((int)x, (int)y, (int)z);
-                _solidIndicesDict[blockOffset] = new List<int>();
+                _solidIndicesDict.Add(blockOffset, new List<int>());
+                _solidBlocksOffsetsList.Add(blockOffset);
+
 
                 foreach (var index in indices)
                 {
@@ -506,13 +374,13 @@ namespace WorldCraft
             return faces.Count * 4;
         }
 
-        private int destroyBlockVertices(float blockX, float blockY, float blockZ)
+        private int DestroyBlockVertices(float x, float y, float z)
         {
-            _blockAccessor.MoveTo(blockX, blockY, blockZ);
+            _blockAccessor.MoveTo(x, y, z);
 
             var indices = _solidIndexList.ToArray();
             
-            var blockOffset = GetBlockOffset((int)blockX, (int)blockY, (int)blockZ);
+            var blockOffset = GetBlockOffset((int)x, (int)y, (int)z);
 
             if (!_solidIndicesDict.ContainsKey(blockOffset))
                 return 0;
@@ -530,8 +398,8 @@ namespace WorldCraft
             var numVertices = uniqIndices.Count;
             var numIndices = blockIndices.Count;
 
-            var dictEnum = _solidIndicesDict.GetEnumerator();
-            dictEnum.MoveNext();
+            var offsetsListEnum = _solidBlocksOffsetsList.GetEnumerator();
+            offsetsListEnum.MoveNext();
 
             _solidIndexList.Clear();
 
@@ -550,12 +418,12 @@ namespace WorldCraft
                 {
                     verticesOffset -= numVertices;
                     i += numIndices;
-                    dictEnum.MoveNext();
+                    offsetsListEnum.MoveNext();
 
                     continue;
                 }
 
-                var list = dictEnum.Current.Value;
+                var list = _solidIndicesDict[offsetsListEnum.Current];
                
                 for(var j = 0; j < list.Count; j++)
                 {
@@ -565,24 +433,30 @@ namespace WorldCraft
 
                 i += list.Count;
 
-                dictEnum.MoveNext();
+                offsetsListEnum.MoveNext();
             }
 
             _solidIndicesDict.Remove(blockOffset);
+            _solidBlocksOffsetsList.Remove(blockOffset);
 
             // [TODO] Must rebuild neighbours vertices
 
             return uniqIndices.Count;
         }
 
-        #endregion
-
-        #region Chunk update
-
-        public void NotifyUpdate()
+        private int RebuildBlockVertices(float x, float y, float z)
         {
-        }
+            var blockOffset = GetBlockOffset((int)x, (int)y, (int)z);
 
+            var verticesCount = 0;
+
+            if (_solidIndicesDict.ContainsKey(blockOffset))
+                verticesCount -= DestroyBlockVertices(x, y, z);
+
+            verticesCount += BuildVertices(_blocks[blockOffset], _blockAccessor.X, _blockAccessor.Y, _blockAccessor.Z);
+
+            return verticesCount;
+        }
         #endregion
 
     }
