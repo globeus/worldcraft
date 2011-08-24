@@ -63,11 +63,13 @@ namespace WorldCraft
             Camera = new Camera(this);
             Map = new Map(this);
             Player = new Player(this);
+            var skyDome = new SkyDome(this);
             var debugInfos = new DebugInfos(this);
             var hud = new HUD(this);
 
             Components.Add(Camera);
             Components.Add(Map);
+            Components.Add(skyDome);
             Components.Add(Player);
             Components.Add(debugInfos);
             Components.Add(hud);
