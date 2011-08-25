@@ -39,7 +39,6 @@ namespace WorldCraft
         private float _currentGravity;
         private float _gravityElapsedTime;
         private bool _jumping;
-        private bool _swimming;
         private bool _falling;
 
         private MouseState _prevMouseState;

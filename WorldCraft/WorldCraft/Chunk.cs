@@ -35,6 +35,14 @@ namespace WorldCraft
         private List<VertexPositionNormalTexture> _solidVertexList;
         private Dictionary<int, List<int>> _solidIndicesDict;
 
+        private VertexBuffer _liquidVertexBuffer;
+        private IndexBuffer _liquidIndexBuffer;
+
+        private List<int> _liquidBlocksOffsetsList;
+        private List<int> _liquidIndexList;
+        private List<VertexPositionNormalTexture> _liquidVertexList;
+        private Dictionary<int, List<int>> _liquidIndicesDict;
+
         public const short WIDTH = 32;
         public const short DEPTH = 32;
         public const short HEIGHT = 32;
@@ -60,6 +68,11 @@ namespace WorldCraft
             _solidIndexList = new List<int>();
             _solidIndicesDict = new Dictionary<int,List<int>>();
             _solidBlocksOffsetsList = new List<int>();
+
+            _liquidVertexList = new List<VertexPositionNormalTexture>();
+            _liquidIndexList = new List<int>();
+            _liquidIndicesDict = new Dictionary<int, List<int>>();
+            _liquidBlocksOffsetsList = new List<int>();
 
             _blocks = blocks;
             _blockAccessor = new BlockAccessor(_game.Map);
@@ -92,7 +105,7 @@ namespace WorldCraft
         /// <param name="gameTime">Time passed since the last call to Draw.</param>
         public void Draw(GameTime gameTime)
         {
-            if (_solidVertexList.Count == 0)
+            if (_solidVertexList.Count == 0 && _liquidVertexList.Count == 0)
                 return;
 
             if (InViewFrustrum)
@@ -110,9 +123,20 @@ namespace WorldCraft
                 foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
                 {
                     pass.Apply();
-                    _game.GraphicsDevice.SetVertexBuffer(_solidVertexBuffer);
-                    _game.GraphicsDevice.Indices = _solidIndexBuffer;
-                    _game.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _solidVertexList.Count, 0, _solidIndexList.Count / 3);
+
+                    if (_solidVertexList.Count > 0 )
+                    {
+                        _game.GraphicsDevice.SetVertexBuffer(_solidVertexBuffer);
+                        _game.GraphicsDevice.Indices = _solidIndexBuffer;
+                        _game.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _solidVertexList.Count, 0, _solidIndexList.Count / 3);
+                    }
+
+                    if (_liquidVertexList.Count > 0)
+                    {
+                        _game.GraphicsDevice.SetVertexBuffer(_liquidVertexBuffer);
+                        _game.GraphicsDevice.Indices = _liquidIndexBuffer;
+                        _game.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _liquidVertexList.Count, 0, _liquidIndexList.Count / 3);
+                    }
                 }
             }
         }
@@ -175,19 +199,32 @@ namespace WorldCraft
             _solidVertexList.Clear();
             _solidIndicesDict.Clear();
 
+            _liquidIndexList.Clear();
+            _liquidVertexList.Clear();
+            _liquidIndicesDict.Clear();
+
             NumVertices = 0;
         }
 
         private void UpdateBuffers()
         {
-            if (_solidVertexList.Count == 0)
-                return;
+            if (_solidVertexList.Count > 0)
+            {
+                _solidVertexBuffer = new VertexBuffer(_game.GraphicsDevice, typeof(VertexPositionNormalTexture), _solidVertexList.Count, BufferUsage.WriteOnly);
+                _solidVertexBuffer.SetData(_solidVertexList.ToArray());
 
-            _solidVertexBuffer = new VertexBuffer(_game.GraphicsDevice, typeof(VertexPositionNormalTexture), _solidVertexList.Count, BufferUsage.WriteOnly);
-            _solidVertexBuffer.SetData(_solidVertexList.ToArray());
+                _solidIndexBuffer = new IndexBuffer(_game.GraphicsDevice, IndexElementSize.ThirtyTwoBits, _solidIndexList.Count, BufferUsage.WriteOnly);
+                _solidIndexBuffer.SetData(_solidIndexList.ToArray());
+            }
 
-            _solidIndexBuffer = new IndexBuffer(_game.GraphicsDevice, IndexElementSize.ThirtyTwoBits, _solidIndexList.Count, BufferUsage.WriteOnly);
-            _solidIndexBuffer.SetData(_solidIndexList.ToArray());
+            if (_liquidVertexList.Count > 0)
+            {
+                _liquidVertexBuffer = new VertexBuffer(_game.GraphicsDevice, typeof(VertexPositionNormalTexture), _liquidVertexList.Count, BufferUsage.WriteOnly);
+                _liquidVertexBuffer.SetData(_liquidVertexList.ToArray());
+
+                _liquidIndexBuffer = new IndexBuffer(_game.GraphicsDevice, IndexElementSize.ThirtyTwoBits, _liquidIndexList.Count, BufferUsage.WriteOnly);
+                _liquidIndexBuffer.SetData(_liquidIndexList.ToArray());
+            }
         }
 
         private void BuildVertices()
@@ -213,6 +250,19 @@ namespace WorldCraft
             UpdateBuffers();
         }
 
+        private bool DrawFace(Block block1, Block block2)
+        {
+            if (BlockHelper.IsTransparent(block1) && BlockHelper.IsSolid(block2))
+                return true;
+            if (BlockHelper.IsSolid(block1) && BlockHelper.IsTransparent(block2))
+                return true;
+            else if (BlockHelper.IsSolid(block1) && BlockHelper.IsSolid(block2))
+                return false;
+            else if (BlockHelper.IsTransparent(block1) && BlockHelper.IsTransparent(block2) && !BlockHelper.IsNone(block1) && !BlockHelper.IsNone(block2))
+                return false;
+            else return true;
+        }
+
         private int BuildVertices(Block block, float x, float y, float z)
         {
             if (block.Type == BlockType.None)
@@ -229,7 +279,7 @@ namespace WorldCraft
             var faces = new List<VertexPositionNormalTexture[]>();
 
             // Front
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Backward.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Backward.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -240,7 +290,7 @@ namespace WorldCraft
             }
 
             //Back
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Forward.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Forward.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
@@ -251,7 +301,7 @@ namespace WorldCraft
             }
 
             //Right
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Right.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Right.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, -1 * scaleZ + z);
@@ -264,7 +314,7 @@ namespace WorldCraft
 
 
             //Bottom
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Down.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Down.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -276,7 +326,7 @@ namespace WorldCraft
             }
 
             //Left
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Left.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Left.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(-1 * scaleX + x, -1 * scaleY + y, -1 * scaleZ + z);
@@ -288,7 +338,7 @@ namespace WorldCraft
             }
 
             //Top
-            if (_blockAccessor.MoveTo((int)x, (int)y, (int)z).Up.IsTransparent && !_blockAccessor.IsLiquid)
+            if (DrawFace(block, _blockAccessor.MoveTo((int)x, (int)y, (int)z).Up.Block))
             {
                 var face = new VertexPositionNormalTexture[4];
                 face[0].Position = new Vector3(1 * scaleX + x, 1 * scaleY + y, 1 * scaleZ + z);
@@ -353,23 +403,26 @@ namespace WorldCraft
                     face[indices[i * 3 + 2] % 4].Normal.Normalize();
                 }
 
-                var currentVertexOffset = _solidVertexList.Count;
+                var currentVertexOffset = isLiquid ? _liquidVertexList.Count : _solidVertexList.Count;
 
-                var verticesList = new List<VertexPositionNormalTexture>();
+                var indicesDict = isLiquid ? _liquidIndicesDict : _solidIndicesDict;
+                var vertexList = isLiquid ? _liquidVertexList : _solidVertexList;
+                var indexList = isLiquid ? _liquidIndexList : _solidIndexList;
+                var blocksOffsetsList = isLiquid ? _liquidBlocksOffsetsList : _solidBlocksOffsetsList;
 
                 foreach (var face in faces)
                     foreach (var vertex in face)
-                        _solidVertexList.Add(vertex);
+                        vertexList.Add(vertex);
 
                 var blockOffset = GetBlockOffset((int)x, (int)y, (int)z);
-                _solidIndicesDict.Add(blockOffset, new List<int>());
-                _solidBlocksOffsetsList.Add(blockOffset);
+                indicesDict.Add(blockOffset, new List<int>());
+                blocksOffsetsList.Add(blockOffset);
 
 
                 foreach (var index in indices)
                 {
-                    _solidIndexList.Add(index + currentVertexOffset);
-                    _solidIndicesDict[blockOffset].Add(index + currentVertexOffset);
+                    indexList.Add(index + currentVertexOffset);
+                    indicesDict[blockOffset].Add(index + currentVertexOffset);
                 }
             }
 
