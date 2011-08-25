@@ -39,9 +39,9 @@ namespace WorldCraft
 
         protected override void LoadContent()
         {
-            _effect = _game.Content.Load<Effect>("skyEffect");
-            _cloudMap = _game.Content.Load<Texture2D>("cloudMap");
-            _skyDome = _game.Content.Load<Model>("skyDome");
+            _effect = _game.Content.Load<Effect>("Effects/skyEffect");
+            _cloudMap = _game.Content.Load<Texture2D>("Textures/cloudMap");
+            _skyDome = _game.Content.Load<Model>("Models/skyDome");
             _skyDome.Meshes[0].MeshParts[0].Effect = _effect;
 
             base.LoadContent();

@@ -42,28 +42,28 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ArialFont.spritefont">
-      <Name>ArialFont</Name>
+    <Compile Include="Fonts\main.spritefont">
+      <Name>main</Name>
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="skyDome.x">
+    <Compile Include="Models\skyDome.x">
       <Name>skyDome</Name>
       <Importer>XImporter</Importer>
       <Processor>ModelProcessor</Processor>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="cloudMap.jpg">
+    <Compile Include="Textures\cloudMap.jpg">
       <Name>cloudMap</Name>
       <Importer>TextureImporter</Importer>
       <Processor>TextureProcessor</Processor>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="skyEffect.fx">
+    <Compile Include="Effects\skyEffect.fx">
       <Name>skyEffect</Name>
       <Importer>EffectImporter</Importer>
       <Processor>EffectProcessor</Processor>
@@ -72,6 +72,13 @@
   <ItemGroup>
     <Compile Include="textures.png">
       <Name>textures</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Textures\waterbump.dds">
+      <Name>waterbump</Name>
       <Importer>TextureImporter</Importer>
       <Processor>TextureProcessor</Processor>
     </Compile>

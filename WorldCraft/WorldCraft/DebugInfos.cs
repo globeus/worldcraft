@@ -28,7 +28,7 @@ namespace WorldCraft
             : base(game)
         {
             _game = game;
-            _font = _game.Content.Load<SpriteFont>("ArialFont");
+            _font = _game.Content.Load<SpriteFont>("Fonts/main");
         }
 
         /// <summary>
